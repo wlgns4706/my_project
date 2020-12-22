@@ -1,0 +1,121 @@
+import requests
+
+import json
+
+ 
+
+ 
+
+#ERP 로그인 토큰 받기-------------------------------------------------
+
+erp_login_url = 'https://api.erp-origin.cleancitynetworks.com/api/v1/auth/login'
+
+login_info = {
+
+    'email': "jh.kim@ecubelabs.com",
+
+    'password' : "kjh014712!"
+
+}
+
+headers = {
+
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36',
+
+    'referer': 'https://erp.cleancitynetworks.com/login'
+
+}
+
+req = requests.post(erp_login_url, headers = headers, data = login_info).text
+
+erp_login_token = json.loads(req)['token']
+
+ 
+
+ 
+
+#업데이트할 Usim 상태 입력----------------------------------------
+
+print('Suspend -> Active(A), Acitve -> Suspend (S)')
+
+state = input('Enter A or S :')
+
+ 
+
+ 
+
+# A or S 가 아니면 다시 입력 반복문----------------------------
+
+if state == 's':
+
+    state = 'S'
+
+elif state == 'a':
+
+    state = 'A'
+
+ 
+
+while not(state == 'A' or state == 'S'):
+
+    print('Try again')
+
+    state = input('Enter A or S :')
+
+ 
+
+ 
+
+#Usim 번호 입력-------------------------------------------------
+
+usim_num = input('Enter USIM number_(Separate with spaces) : ').split()
+
+ 
+
+ 
+
+#Requests 내용----------------------------------------------
+
+usim_url = 'https://api.erp-origin.cleancitynetworks.com/api/v1/usim'
+
+ 
+
+custom_header = {
+
+    'authorization' : 'Bearer '+ erp_login_token,
+
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36',
+
+    'filter-setting': '{"product":{"releaseDate":{"to":null,"from":null},"productType":"","assembleStatus":"","invoiceNo":"","productCode":"","mainBoard":"","slaveBoard":"","ccnRegistration":"","link":false},"usim":{"usimActive":"","usimProfile":"","link":false},"ccn":{"productUserIdx":[555],"lastTelecom":"","clientType":"","days":"","ccb":{"errorStatus":[],"currentStatus":[],"reportingType":[],"health":false},"ccp":{"errorStatus":[],"currentStatus":[],"reportingType":[],"voltage":false}},"tracker":{"productUserIdx":[]}}'
+
+}
+
+ 
+
+ 
+
+#Usim State 변경----------------------------------------
+
+for num in usim_num:
+
+    data = {
+
+    'usim_id' : num,
+
+    'state' : state
+
+    }
+
+    req = requests.put(usim_url,headers=custom_header, data = data)
+
+    print(num)
+
+    print(req.text)
+
+    
+
+ 
+
+#2020-08-14 : 워딩 영어로 바꿈, 소문자 s,a를 입력하여도 S,A로 인식 할 수 있도록 개선
+
+ 
