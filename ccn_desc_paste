@@ -1,0 +1,167 @@
+import requests
+
+import json
+
+ 
+
+#구글연동
+
+import gspread
+
+from oauth2client.service_account import ServiceAccountCredentials
+
+ 
+
+scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive',]
+
+json_file_name ='/erp-crawling-test-da27a9ae3448.json'
+
+credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file_name, scope)
+
+gc = gspread.authorize(credentials)
+
+spreadsheet_url = 'https://docs.google.com/spreadsheets/d/17sd8lJowCEv5dN1zHoXZdsYqUp--Xhg1xa18RsYHoGc/edit#gid=0'
+
+ 
+
+# google sheet 문서 시트 불러옴
+
+doc = gc.open_by_url(spreadsheet_url)
+
+# sheet불러옴
+
+worksheet = doc.worksheet('ccn_desc')
+
+cell_count = int(worksheet.acell('e1').value)+1
+
+#print(cell_count)
+
+range_list = worksheet.range('A2:C{}'.format(cell_count))
+
+#print(range_list)
+
+ 
+
+ 
+
+ 
+
+#CCN desc,address 붙여넣을 계정 로그인 토큰 받기--------------------------------------------------
+
+ccn_login_email = input('User ID : ')
+
+ccn_login_url = 'https://cleancitynetworks.com/auth/local'
+
+login_info = {
+
+    'email': ccn_login_email,
+
+    'password' : "iloveecubelabs0293!@#$"
+
+}
+
+headers = {
+
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36',
+
+    'referer': 'https://cleancitynetworks.com/login'
+
+}
+
+req = requests.post(ccn_login_url, headers = headers, data = login_info).text
+
+ccn_login_token = json.loads(req)['token']
+
+ 
+
+ 
+
+#Header 정보 연동----------------------------------------------------------------
+
+page_url = 'https://cleancitynetworks.com/api/bins/{}'
+
+custom_header = {
+
+    #'authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWR4IjoyMDI4LCJleHBpcmVzIjoiMjAyMC0wNy0yOVQwOToyNzozNi44MjRaIiwiX3ZlcnNpb24iOjMuMX0.qQyfYrzH5UBfuXuj9POqURaz6u9cpIy2913EbR0JjQY',
+
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Safari/537.36',
+
+    'token' : ccn_login_token,
+
+    'referer': 'https://cleancitynetworks.com/overview',
+
+    'origin': 'https://cleancitynetworks.com'
+
+}
+
+ 
+
+ 
+
+ 
+
+#변수 선언------------------
+
+ 
+
+count = 0
+
+idx = ""
+
+desc = ""
+
+address = ""
+
+ 
+
+    
+
+for cell in range_list:
+
+    if count == 0:
+
+        idx = cell.value
+
+        count += 1
+
+    elif count == 1:
+
+        desc = cell.value
+
+        count += 1
+
+    elif count == 2:
+
+        address = cell.value
+
+        print(idx,desc,address)
+
+        if address == "":
+
+            payload = {
+
+            'client_desc' : desc
+
+            }
+
+        else:
+
+            payload = {
+
+                'client_desc' : desc,
+
+                'address' : address            
+
+            }
+
+        requests.put(page_url.format(idx),headers=custom_header, data = payload)
+
+        print(page_url.format(idx))
+
+        count = 0
+
+ 
+
+#2020.08.11 : v1 완성
+
+#2020.08.14 : 워딩 영문으로 바꿈
