@@ -1,0 +1,611 @@
+import requests
+
+from bs4 import BeautifulSoup as bs
+
+import json
+
+from datetime import datetime
+
+import time
+
+ 
+
+#구글연동
+
+import gspread
+
+from oauth2client.service_account import ServiceAccountCredentials
+
+ 
+
+#구글연동
+
+scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive',]
+
+json_file_name ='/erp-crawling-test-da27a9ae3448.json'
+
+credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file_name, scope)
+
+gc = gspread.authorize(credentials)
+
+spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1NwsQzFd2wMJWaMwif1bEGSxeXSmM1EqM2-zAqadllnQ/edit#gid=0'
+
+ 
+
+ 
+
+#spread sheet에서 계정 리스트 불러오기
+
+# sheet불러옴
+
+worksheet = doc.worksheet('T/S_DashBoard(New)')
+
+cell_count = int(worksheet.acell('A2').value[4:6])+1
+
+#range_list = worksheet.range('A3:A{}'.format(cell_count))
+
+range_list = worksheet.range('A3:A5')
+
+ 
+
+for test in range_list:
+
+    #계정 idx 불러오기##############################################
+
+    print(test.value)
+
+    
+
+    user_idx_url = 'https://api.erp-origin.cleancitynetworks.com/api/v1/user/ccn/semantic'
+
+ 
+
+    user_idx_header = {
+
+        'authorization' : 'Bearer '+ login_token,
+
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36'
+
+    }
+
+    user_idx_req = json.loads(requests.get(user_idx_url, headers = user_idx_header).text)
+
+    search = test.value
+
+ 
+
+    for data in user_idx_req:
+
+        #계정 IDX 검색#################
+
+        user_email = data['text']
+
+        user_idx = str(data['key'])
+
+        if '('+search+')' in user_email:
+
+            break
+
+ 
+
+    print(user_email,user_idx)
+
+    ####################################################################
+
+    #계정별 제품 IDX 검색
+
+    erp_list_url = 'https://api.erp-origin.cleancitynetworks.com/api/v1/product/ccn'
+
+    erp_list_header = {
+
+        'authorization' : 'Bearer '+login_token,
+
+        'filter-setting': '{"product":{"releaseDate":{"to":null,"from":null},"productType":"","assembleStatus":"","invoiceNo":"","productCode":"","mainBoard":"","slaveBoard":"","ccnRegistration":"","link":false},"usim":{"usimActive":"","usimProfile":"","link":false},"ccn":{"productUserIdx":['+user_idx+'],"lastTelecom":"","clientType":"","days":"","ccb":{"errorStatus":[],"currentStatus":[],"reportingType":[],"health":false},"ccp":{"errorStatus":[],"currentStatus":[],"reportingType":[],"voltage":false},"lastTelecomOper":">="},"tracker":{"productUserIdx":[]}}'
+
+    }
+
+ 
+
+    erp_list_req = json.loads(requests.get(erp_list_url,headers=erp_list_header).text)
+
+    idx_list = []
+
+ 
+
+    #print(erp_list_req)
+
+ 
+
+ 
+
+    for idx_data in erp_list_req:
+
+        idx = idx_data['idx']
+
+        description = idx_data['description']
+
+        idx_list += [idx]
+
+ 
+
+ 
+
+    ######################################################################################################
+
+ 
+
+ 
+
+    #ERP_CSV 파일 크롤링
+
+    erp_csv_url = 'https://api.erp-origin.cleancitynetworks.com/api/v1/product/ccn/csv'
+
+ 
+
+    erp_csv_header = {
+
+        'authorization' : 'Bearer '+login_token
+
+    }
+
+ 
+
+ 
+
+ 
+
+    dbid = {'idxs' : idx_list }
+
+ 
+
+ 
+
+    erp_csv_req = json.loads(requests.post(erp_csv_url,headers=erp_csv_header, data = dbid).text)
+
+    #print(erp_csv_req)
+
+ 
+
+    data_lists = []
+
+ 
+
+ 
+
+ 
+
+    for data in erp_csv_req:
+
+        Product_Type = data['Product Type']
+
+        
+
+        
+
+        #CCB##############################
+
+        if Product_Type == 'CCB':
+
+            CCN_DB_ID = data['CCN DB ID']
+
+            Serial_No = data['Serial No']
+
+            Usim_ID = data['Usim ID']
+
+            Reporting_Interval = data['Reporting Interval']
+
+ 
+
+            if (Reporting_Interval == 1):
+
+                Reporting_Interval = '5 minute'
+
+            if (Reporting_Interval == 2):
+
+                Reporting_Interval = '10 minute'
+
+            if (Reporting_Interval == 3):
+
+                Reporting_Interval = '20 minute'
+
+            if (Reporting_Interval == 4):
+
+                Reporting_Interval = '30 minute'
+
+            if (Reporting_Interval == 5):
+
+                Reporting_Interval = '1 Hours'
+
+            if (Reporting_Interval == 6):
+
+                Reporting_Interval = '3 Hours'
+
+            if (Reporting_Interval == 7):
+
+                Reporting_Interval = '6 Hours'
+
+            if (Reporting_Interval == 8):
+
+                Reporting_Interval = '12 Hours'
+
+            if (Reporting_Interval == 9):
+
+                Reporting_Interval = '24 Hours'
+
+ 
+
+ 
+
+            Product_Type = data['Product Type']
+
+            Last_Voltage = data['Last Voltage']
+
+            #Last_Telecom = str(datetime.fromtimestamp(int(str(data['Last Telecom'])[:10])))
+
+            Last_Telecom = data['Last Telecom']
+
+            Last_Master_Version = data['Last Master Version']
+
+            Last_Enc_U = data['Last Enc U (CCB)']
+
+            Last_Enc_D = data['Last Enc D (CCB)']
+
+            Last_Amp = data['Last Amp (CCB)']
+
+            Last_RT = int(data['CCB Last RT'],10)
+
+ 
+
+            #Reporting Type 정의
+
+            if(Last_RT == 3):
+
+                Last_RT = 'Compaction'
+
+            elif (Last_RT == 1):
+
+                Last_RT = 'Periodic'
+
+            elif (Last_RT == 0):
+
+                Last_RT = 'Boot'
+
+            elif (Last_RT == 8):
+
+                Last_RT = 'Door Open/Close'
+
+            elif (Last_RT == 2):
+
+                Last_RT = 'Error'
+
+            elif (Last_RT == 6):
+
+                Last_RT = 'GPS'
+
+ 
+
+ 
+
+            #에러 출력
+
+            Last_Err_raw = list(str(data['CCB Last Err']))
+
+ 
+
+            Last_Err_raw.reverse()
+
+            Last_Err_raw_count = 16 - len(Last_Err_raw)
+
+            Last_Err_raw.extend('0'*Last_Err_raw_count)
+
+            Last_Err = ''
+
+ 
+
+            if Last_Err_raw[0] == '1':
+
+                Last_Err_buf = 'PhotoError'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[1] == '1':
+
+                Last_Err_buf = 'EncoderError'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[2] == '1':
+
+                Last_Err_buf = 'SleepMode'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[3] == '1':
+
+                Last_Err_buf = 'StandbyMode'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[4] == '1':
+
+                Last_Err_buf = 'SafetySensorError'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[5] == '1':
+
+                Last_Err_buf = 'DoorOpenTimeout'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[6] == '1':
+
+                Last_Err_buf = 'FullMode'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[8] == '1':
+
+                Last_Err_buf = 'HighLimitError'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[11] == '1':
+
+                Last_Err_buf = 'OverCurrent'
+
+                Last_Err += Last_Err_buf +','
+
+            if Last_Err_raw[12] == '1':
+
+                Last_Err_buf = 'MotorError'
+
+                Last_Err += Last_Err_buf +','
+
+                #마지막 쉼표 지우기
+
+            Last_Err = Last_Err[:-1]
+
+ 
+
+ 
+
+            #현재상태 출력
+
+            Last_Curr_raw = list(str(data['CCB Last Curr']))
+
+ 
+
+            Last_Curr_raw.reverse()
+
+            Last_Curr_raw_count = 16 - len(Last_Curr_raw)
+
+            Last_Curr_raw.extend('0'*Last_Curr_raw_count)
+
+            Last_Curr = ''
+
+ 
+
+            if Last_Curr_raw[2] == '1':
+
+                Last_Curr_buf = 'PrePhotoSensor'
+
+                Last_Curr += Last_Curr_buf + ','
+
+            if Last_Curr_raw[10] == '1':
+
+                Last_Curr_buf = 'CommBoardReset'
+
+                Last_Curr += Last_Curr_buf + ','
+
+            if Last_Curr_raw[13] == '1':
+
+                Last_Curr_buf = 'SafetySensorOn'
+
+                Last_Curr += Last_Curr_buf + ','
+
+            if Last_Curr_raw[14] == '1':
+
+                Last_Curr_buf = 'HighLimitSensorOn'
+
+                Last_Curr += Last_Curr_buf + ','
+
+            if Last_Curr_raw[15] == '1':
+
+                Last_Curr_buf = 'DoorOpened'
+
+                Last_Curr += Last_Curr_buf + ','
+
+ 
+
+            Last_Curr = Last_Curr[:-1]
+
+ 
+
+            datas = [[CCN_DB_ID, Serial_No, Usim_ID, Reporting_Interval, Product_Type, Last_Voltage, Last_Telecom, Last_Master_Version, Last_Enc_U, Last_Enc_D,
+
+                     Last_Amp, Last_RT, Last_Err, Last_Curr]]
+
+            data_lists += datas
+
+ 
+
+ 
+
+        #CFX############################################################
+
+        if Product_Type == 'CCP' or Product_Type ==  'CFX_ToF' or Product_Type == 'CFX_USW' :
+
+            CCN_DB_ID = data['CCN DB ID']
+
+            Serial_No = data['Serial No']
+
+            Usim_ID = data['Usim ID']
+
+ 
+
+            Reporting_Interval = data['Reporting Interval']
+
+            if (Reporting_Interval == 1):
+
+                Reporting_Interval = '5 minute'
+
+            if (Reporting_Interval == 2):
+
+                Reporting_Interval = '10 minute'
+
+            if (Reporting_Interval == 3):
+
+                Reporting_Interval = '20 minute'
+
+            if (Reporting_Interval == 4):
+
+                Reporting_Interval = '30 minute'
+
+            if (Reporting_Interval == 5):
+
+                Reporting_Interval = '1 Hours'
+
+            if (Reporting_Interval == 6):
+
+                Reporting_Interval = '3 Hours'
+
+            if (Reporting_Interval == 7):
+
+                Reporting_Interval = '6 Hours'
+
+            if (Reporting_Interval == 8):
+
+                Reporting_Interval = '12 Hours'
+
+            if (Reporting_Interval == 9):
+
+                Reporting_Interval = '24 Hours'
+
+ 
+
+            Product_Type = data['Product Type']
+
+            Last_Voltage = data['Last Voltage']
+
+            Last_Telecom = data['Last Telecom']
+
+            Last_Master_Version = data['Last Master Version']
+
+            Last_USW = data['Last USW (CFX)']
+
+ 
+
+            Last_RT = data['CCP Last RT']
+
+            if Last_RT == '0':
+
+                Last_RT = 'Boot'
+
+            elif Last_RT == '1':
+
+                Last_RT = 'Periodic'
+
+            elif Last_RT == '2':
+
+                Last_RT = 'Error'
+
+            elif Last_RT == '3':
+
+                Last_RT = 'Event'
+
+            elif Last_RT == '6':
+
+                Last_RT = 'GPS'
+
+            elif Last_RT == '9':
+
+                Last_RT = 'Shutdown'
+
+ 
+
+            #CFX 에러 출력
+
+            Last_Err_raw = list(str(data['CCP Last Err']))
+
+            Last_Err_raw.reverse()
+
+            Last_Err_raw_count = 16 - len(Last_Err_raw)
+
+            Last_Err_raw.extend('0'*Last_Err_raw_count)
+
+            #print(Last_Err_raw)
+
+ 
+
+            Last_Err = ''
+
+            if Last_Err_raw[11] == '1':
+
+                Last_Err_buf = 'BinFellDown'
+
+                Last_Err += Last_Err_buf +','
+
+ 
+
+            Last_Err = Last_Err[:-1]
+
+ 
+
+            #CFX CURR 출력
+
+            Last_Curr_raw = list(str(data['CCP Last Curr']))
+
+ 
+
+            Last_Curr_raw.reverse()
+
+            Last_Curr_raw_count = 16 - len(Last_Curr_raw)
+
+            Last_Curr_raw.extend('0'*Last_Curr_raw_count)
+
+            Last_Curr = ''
+
+ 
+
+            if Last_Curr_raw[5] == '1':
+
+                Last_Curr_buf = 'Collection'
+
+                Last_Curr += Last_Curr_buf + ','
+
+            if Last_Curr_raw[7] == '1':
+
+                Last_Curr_buf = 'DataOverflow'
+
+                Last_Curr += Last_Curr_buf + ','
+
+            if Last_Curr_raw[9] == '1':
+
+                Last_Curr_buf = 'BinLidOpened'
+
+                Last_Curr += Last_Curr_buf + ','
+
+            Last_Curr = Last_Curr[:-1]
+
+ 
+
+            #그프레드시트에 입력
+
+            datas = [[CCN_DB_ID, Serial_No, Usim_ID, Reporting_Interval, Product_Type, Last_Voltage, Last_Telecom, Last_Master_Version, '', '',
+
+                     '', Last_RT, Last_Err, Last_Curr,Last_USW]]
+
+            data_lists += datas
+
+ 
+
+ 
+
+ 
+
+ 
+
+    #print(data_lists)
+
+    doc.worksheet('Svalbard').append_rows(data_lists)
